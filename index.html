@@ -1,103 +1,112 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>剪貼簿工具</title>
   <style>
-    body { background:#f3f6fb; font-family:Arial,sans-serif; text-align:center; padding:20px }
-    #clipboard { width:80%; height:200px; margin:20px auto; padding:10px; border:2px solid #ccc; border-radius:10px; font-size:18px; }
-    #mobile-qr img { max-width:200px; border:2px solid #ccc; border-radius:8px; margin:20px auto; }
-    input, #status { margin-top:10px }
-    #history { max-width:80%; margin:30px auto; text-align:left; list-style:none; padding:0 }
-    .item { position:relative; margin:8px 0; padding:10px; background:#fff; border:1px solid #ddd; border-radius:6px }
-    .delete-btn { position:absolute; top:6px; right:6px; border:none; background:none; color:red; font-size:16px; cursor:pointer }
+    body { background: #f3f6fb; font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+    h1 { color: #333; }
+    #clipboard {
+      width: 80%; height: 200px; margin: 20px auto;
+      padding: 10px; border: 2px solid #ccc;
+      border-radius: 10px; background: white;
+      font-size: 18px; resize: none;
+    }
+    #history { max-width: 80%; margin: 20px auto; list-style: none; padding: 0; text-align: left; }
+    .item {
+      position: relative; background: white;
+      margin: 6px 0; padding: 8px 30px 8px 12px;
+      border: 1px solid #ddd; border-radius: 6px;
+    }
+    .item-number { font-weight: bold; margin-right: 6px; }
+    .delete-btn {
+      position: absolute; top: 4px; right: 4px;
+      cursor: pointer; color: red; font-size: 16px;
+      border: none; background: transparent;
+    }
   </style>
 </head>
 <body>
   <h1>剪貼簿工具</h1>
   <textarea id="clipboard" placeholder="Shift+Enter 換行，Enter 同步並加入歷史"></textarea>
-
-  <div id="mobile-qr"><p>手機開啟網址</p><img src="qrcode.png" alt="QR Code 網址"></div>
-
-  <input type="file" id="upload">
-  <div id="status"></div>
   <ul id="history"></ul>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <!-- Firebase CDN SDKs + 程式邏輯 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getDatabase, ref, update, push, onValue, remove } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
-  <script>
-    const { createClient } = supabase;
-    const supabaseClient = createClient(
-      'https://iudrrkimbkpztjcqzgfx.supabase.co',
-      '你的 anon key'
-    );
-    console.log('Supabase initialized', supabaseClient);
+    // 設定 Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCX_CxCX4qzdppocOx8INI1nmcrM15buDI",
+      authDomain: "cliptools2.firebaseapp.com",
+      databaseURL: "https://cliptools2-default-rtdb.firebaseio.com",
+      projectId: "cliptools2",
+      storageBucket: "cliptools2.appspot.com",
+      messagingSenderId: "719870992662",
+      appId: "1:719870992662:web:2c2c413f2bc95effceb037"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const clipRef = ref(db, "clipboard");
+    const textsRef = ref(db, "clipboard/texts");
 
-    firebase.initializeApp({
-      apiKey: "...", authDomain:"...", databaseURL:"...", projectId:"...", storageBucket:"...", messagingSenderId:"...", appId:"..."
-    });
-    const db = firebase.database();
-    const clipRef = db.ref("clipboard");
-    const textsRef = db.ref("clipboard/texts");
-
-    const textarea = document.getElementById("clipboard");
-    const upload = document.getElementById("upload");
-    const status = document.getElementById("status");
+    // DOM 參考
+    const ta = document.getElementById("clipboard");
     const historyList = document.getElementById("history");
-    let itemCount = 0;
+    let count = 0;
 
-    function addHistoryItem(key, text) {
-      itemCount++;
+    // 新增歷史項目
+    function addItem(key, text) {
+      count++;
       const li = document.createElement("li");
-      li.className = "item";
-      li.innerHTML = `<strong>${itemCount}.</strong> ${text}<button class="delete-btn">✖</button>`;
-      li.querySelector(".delete-btn").onclick = () => {
-        textsRef.child(key).remove();
+      li.className = "item"; li.dataset.key = key;
+      const num = document.createElement("span");
+      num.className = "item-number"; num.textContent = `${count}.`;
+      const txt = document.createElement("span");
+      txt.textContent = text;
+      const btn = document.createElement("button");
+      btn.className = "delete-btn"; btn.textContent = "✖";
+      btn.onclick = () => {
+        remove(ref(db, `clipboard/texts/${key}`));
         li.remove();
-        itemCount = 0;
-        Array.from(historyList.children).forEach((el, i) =>
-          el.querySelector("strong").textContent = `${++itemCount}.`
-        );
+        [...historyList.children].forEach((el, i) => {
+          el.querySelector(".item-number").textContent = `${i+1}.`;
+        });
+        count = historyList.children.length;
       };
+      li.append(num, txt, btn);
       historyList.appendChild(li);
     }
 
-    textarea.addEventListener("keydown", e => {
-      console.log("keydown:", e.key);
+    // 按 Enter 同步 & push
+    ta.addEventListener("keydown", e => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        const val = textarea.value;
-        clipRef.update({ content: val });
-        textsRef.push(val);
+        const v = ta.value;
+        update(clipRef, { content: v });
+        push(textsRef, v);
       }
     });
 
-    textarea.addEventListener("input", () => clipRef.update({ content: textarea.value }));
-
-    clipRef.on("value", snap => {
-      const v = snap.val()?.content;
-      if (v !== undefined && document.activeElement !== textarea) textarea.value = v;
+    // 同步實時內容
+    ta.addEventListener("input", () => {
+      update(clipRef, { content: ta.value });
+    });
+    onValue(clipRef, snap => {
+      const obj = snap.val();
+      if (obj?.content !== undefined && document.activeElement !== ta) {
+        ta.value = obj.content;
+      }
     });
 
-    textsRef.on("child_added", snap => addHistoryItem(snap.key, snap.val()));
-
-    upload.addEventListener("change", async () => {
-      const file = upload.files[0];
-      if (!file) return status.textContent = "";
-      status.textContent = "上傳中...";
-      const filename = `${Date.now()}_${file.name}`;
-      const { error } = await supabaseClient.storage
-        .from('cliptoolsupload').upload(filename, file);
-      if (error) return status.textContent = "上傳失敗 ❌";
-      const { publicUrl, error: urlErr } = supabaseClient.storage
-        .from('cliptoolsupload').getPublicUrl(filename);
-      if (urlErr) return status.textContent = "取得連結失敗 ❌";
-      const txt = `已上傳：${publicUrl}`;
-      clipRef.update({ content: txt });
-      textsRef.push(txt);
-      status.textContent = "上傳成功 ✅";
+    // 監聽歷史新增
+    onValue(textsRef, snap => {
+      historyList.innerHTML = "";
+      count = 0;
+      const data = snap.val();
+      if (!data) return;
+      Object.entries(data).forEach(([k, v]) => addItem(k, v));
     });
   </script>
 </body>
