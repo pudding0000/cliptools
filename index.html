@@ -1,36 +1,31 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8"/>
-  <title>剪貼簿工具</title>
+  <meta charset="UTF-8" />
+  <title>剪貼簿工具 + 檔案上傳 + QR</title>
   <style>
     body { background: #f3f6fb; font-family: Arial, sans-serif; text-align: center; padding: 20px; }
     h1 { color: #333; }
     #clipboard {
-      width: 80%; height: 200px; margin: 20px auto;
-      padding: 10px; border: 2px solid #ccc;
-      border-radius: 10px; background: white;
-      font-size: 18px; resize: none;
+      width: 80%; height: 200px; margin: 20px auto; padding: 10px;
+      border: 2px solid #ccc; border-radius: 10px; background: white;
+      font-size:18px; resize:none;
     }
-    #upload { margin-top: 10px; }
-    #status { margin-top: 5px; }
+    input, #status { margin-top:10px; }
     #mobile-qr {
-      margin: 30px auto; text-align: center;
+      margin: 20px auto; text-align: center;
     }
     #mobile-qr img {
-      max-width: 200px; height: auto;
-      border: 2px solid #ccc; border-radius: 8px;
+      max-width: 200px; border:2px solid #ccc; border-radius:8px;
     }
-    #history { margin: 30px auto; text-align: left; max-width: 80%; padding: 0; list-style: none; }
+    #history { max-width:80%; margin:30px auto; text-align:left; list-style:none; padding:0; }
     .item {
-      position: relative; background: white; margin: 8px 0;
-      padding: 10px; border-radius: 6px; border: 1px solid #ddd;
-      font-size: 16px;
+      position:relative; background:#fff; padding:10px; margin:8px 0;
+      border:1px solid #ddd; border-radius:6px;
     }
-    .item-number { font-weight: bold; margin-right: 8px; }
     .delete-btn {
-      position: absolute; top: 6px; right: 6px; cursor: pointer;
-      color: red; border: none; background: transparent; font-size: 16px;
+      position:absolute; top:6px; right:6px; border:none; background:none;
+      color:red; cursor:pointer; font-size:16px;
     }
   </style>
 </head>
@@ -38,23 +33,32 @@
   <h1>剪貼簿工具</h1>
 
   <textarea id="clipboard" placeholder="Shift+Enter 換行，Enter 同步並加入歷史"></textarea><br>
-  <input type="file" id="upload"/><div id="status"></div>
 
-  <!-- QR Code 靜態展示區 -->
   <div id="mobile-qr">
     <p>手機開啟網址</p>
-    <img src="assets/images/qrcode.png" alt="QR Code 網址">
+    <img src="assets/images/qrcode.png" alt="QR Code 網址" />
   </div>
+
+  <input type="file" id="upload" />
+  <div id="status"></div>
 
   <ul id="history"></ul>
 
-  <!-- Firebase SDK -->
+  <!-- 載入 Supabase & Firebase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
   <script>
-    // 🔑 你的 Firebase 設定
+    // ⭐ Supabase 初始化
+    const supabase = supabase.createClient(
+      'https://iudrrkimbkpztjcqzgfx.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1ZHJya2ltYmtwenRqY3F6Z2Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTQzNzgsImV4cCI6MjA2NjMzMDM3OH0.0zHo3IlsxiF9_HfNJFFdhenjRnerKResdL96IAa6XHE'
+    );
+
+    // 🔐 Firebase 初始化
     const firebaseConfig = {
-      apiKey: "AIzaSyCX_CxCX4qzdppocOx8INI1nmcrM15buDI",
+      apiKey: "AIzaSyCX_CxCX...你的APIKey",
       authDomain: "cliptools2.firebaseapp.com",
       databaseURL: "https://cliptools2-default-rtdb.firebaseio.com",
       projectId: "cliptools2",
@@ -63,10 +67,11 @@
       appId: "1:719870992662:web:2c2c413f2bc95effceb037"
     };
     firebase.initializeApp(firebaseConfig);
-
     const db = firebase.database();
     const clipRef = db.ref("clipboard");
     const textsRef = db.ref("clipboard/texts");
+
+    // DOM 元件
     const textarea = document.getElementById("clipboard");
     const upload = document.getElementById("upload");
     const status = document.getElementById("status");
@@ -78,81 +83,69 @@
       const li = document.createElement("li");
       li.className = "item";
       li.dataset.key = key;
-
-      const no = document.createElement("span");
-      no.className = "item-number";
-      no.textContent = itemCount + ".";
-
-      const content = document.createElement("span");
-      content.textContent = text;
-
-      const btn = document.createElement("button");
-      btn.className = "delete-btn";
-      btn.textContent = "✖";
-      btn.onclick = () => {
+      li.innerHTML = `<strong>${itemCount}.</strong> ${text}
+                      <button class="delete-btn">✖</button>`;
+      li.querySelector(".delete-btn").onclick = () => {
         textsRef.child(key).remove();
         li.remove();
         itemCount = 0;
         Array.from(historyList.children).forEach((el, idx) => {
-          el.querySelector(".item-number").textContent = (idx + 1) + ".";
-          itemCount++;
+          el.querySelector("strong").textContent = `${++itemCount}.`;
         });
       };
-
-      li.append(no, content, btn);
       historyList.appendChild(li);
     }
 
-    // 🔄 Enter 同步文字並加入歷史
-    textarea.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+    // 文字同步及歷史紀錄
+    textarea.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const val = textarea.value;
         clipRef.update({ content: val });
         textsRef.push(val);
       }
     });
-
-    // 任何輸入也同步 textarea content，但不新增歷史
-    textarea.addEventListener('input', () => {
+    textarea.addEventListener("input", () => {
       clipRef.update({ content: textarea.value });
     });
-
-    // 接收同步文字更新 textarea
-    clipRef.on('value', snap => {
+    clipRef.on("value", snap => {
       const v = snap.val()?.content;
       if (v !== undefined && document.activeElement !== textarea) {
         textarea.value = v;
       }
     });
-
-    // 接收文字歷史並顯示項目
-    textsRef.on('child_added', snap => {
+    textsRef.on("child_added", snap => {
       addHistoryItem(snap.key, snap.val());
     });
 
-    // 檔案上傳處理
-    upload.addEventListener('change', async () => {
+    // 檔案上傳到 Supabase Storage
+    upload.addEventListener("change", async () => {
       const file = upload.files[0];
       if (!file) return;
       status.textContent = "上傳中...";
-      const fd = new FormData();
-      fd.append("file", file);
-      try {
-        const res = await fetch("https://file.io", { method: "POST", body: fd });
-        const json = await res.json();
-        if (json.success) {
-          status.textContent = "上傳成功 ✅";
-          const val = `已上傳：${json.link}`;
-          clipRef.update({ content: val });
-          textsRef.push(val);
-        } else {
-          status.textContent = "上傳失敗 ❌";
-        }
-      } catch (err) {
-        console.error(err);
+      const filename = `${Date.now()}_${file.name}`;
+      const { data, error } = await supabase
+        .storage
+        .from('cliptoolsupload')
+        .upload(filename, file);
+      if (error) {
+        console.error(error);
         status.textContent = "上傳失敗 ❌";
+        return;
       }
+      const { publicUrl, error: urlErr } = supabase
+        .storage
+        .from('cliptoolsupload')
+        .getPublicUrl(filename);
+      if (urlErr) {
+        console.error(urlErr);
+        status.textContent = "取得連結失敗 ❌";
+        return;
+      }
+      const val = `已上傳：${publicUrl}`;
+      clipRef.update({ content: val });
+      textsRef.push(val);
+      status.textContent = "上傳成功 ✅";
     });
   </script>
 </body>
