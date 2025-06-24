@@ -11,13 +11,9 @@
       border: 2px solid #ccc; border-radius: 10px; background: white;
       font-size:18px; resize:none;
     }
+    #mobile-qr { margin:20px auto; text-align: center; }
+    #mobile-qr img { max-width:200px; border:2px solid #ccc; border-radius:8px; }
     input, #status { margin-top:10px; }
-    #mobile-qr {
-      margin: 20px auto; text-align: center;
-    }
-    #mobile-qr img {
-      max-width: 200px; border:2px solid #ccc; border-radius:8px;
-    }
     #history { max-width:80%; margin:30px auto; text-align:left; list-style:none; padding:0; }
     .item {
       position:relative; background:#fff; padding:10px; margin:8px 0;
@@ -50,15 +46,15 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
   <script>
-    // ⭐ Supabase 初始化
+    // Supabase 初始化
     const supabase = supabase.createClient(
       'https://iudrrkimbkpztjcqzgfx.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1ZHJya2ltYmtwenRqY3F6Z2Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTQzNzgsImV4cCI6MjA2NjMzMDM3OH0.0zHo3IlsxiF9_HfNJFFdhenjRnerKResdL96IAa6XHE'
     );
 
-    // 🔐 Firebase 初始化
+    // Firebase 初始化
     const firebaseConfig = {
-      apiKey: "AIzaSyCX_CxCX...你的APIKey",
+      apiKey: "AIzaSyCX_CxCX4qzdppocOx8INI1nmcrM15buDI",
       authDomain: "cliptools2.firebaseapp.com",
       databaseURL: "https://cliptools2-default-rtdb.firebaseio.com",
       projectId: "cliptools2",
@@ -71,7 +67,6 @@
     const clipRef = db.ref("clipboard");
     const textsRef = db.ref("clipboard/texts");
 
-    // DOM 元件
     const textarea = document.getElementById("clipboard");
     const upload = document.getElementById("upload");
     const status = document.getElementById("status");
@@ -96,8 +91,9 @@
       historyList.appendChild(li);
     }
 
-    // 文字同步及歷史紀錄
+    // 確保能捕捉 Enter key
     textarea.addEventListener("keydown", e => {
+      console.log("keydown:", e.key);
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const val = textarea.value;
@@ -105,28 +101,23 @@
         textsRef.push(val);
       }
     });
-    textarea.addEventListener("input", () => {
-      clipRef.update({ content: textarea.value });
-    });
+    textarea.addEventListener("input", () => clipRef.update({ content: textarea.value }));
+
     clipRef.on("value", snap => {
       const v = snap.val()?.content;
       if (v !== undefined && document.activeElement !== textarea) {
         textarea.value = v;
       }
     });
-    textsRef.on("child_added", snap => {
-      addHistoryItem(snap.key, snap.val());
-    });
+    textsRef.on("child_added", snap => addHistoryItem(snap.key, snap.val()));
 
-    // 檔案上傳到 Supabase Storage
     upload.addEventListener("change", async () => {
       const file = upload.files[0];
       if (!file) return;
       status.textContent = "上傳中...";
       const filename = `${Date.now()}_${file.name}`;
       const { data, error } = await supabase
-        .storage
-        .from('cliptoolsupload')
+        .storage.from('cliptoolsupload')
         .upload(filename, file);
       if (error) {
         console.error(error);
@@ -134,8 +125,7 @@
         return;
       }
       const { publicUrl, error: urlErr } = supabase
-        .storage
-        .from('cliptoolsupload')
+        .storage.from('cliptoolsupload')
         .getPublicUrl(filename);
       if (urlErr) {
         console.error(urlErr);
