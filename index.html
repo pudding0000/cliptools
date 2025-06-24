@@ -5,9 +5,9 @@
   <title>剪貼簿工具</title>
   <style>
     body { background:#f3f6fb; font-family:Arial,sans-serif; text-align:center; padding:20px }
-    #clipboard { width:80%; height:200px; margin:20px auto; padding:10px; border:2px solid #ccc; border-radius:10px; font-size:18px; resize:none }
+    #clipboard { width:80%; height:200px; margin:20px auto; padding:10px; border:2px solid #ccc; border-radius:10px; font-size:18px; }
     #mobile-qr img { max-width:200px; border:2px solid #ccc; border-radius:8px; margin:20px auto; }
-    #status, input { margin-top:10px }
+    input, #status { margin-top:10px }
     #history { max-width:80%; margin:30px auto; text-align:left; list-style:none; padding:0 }
     .item { position:relative; margin:8px 0; padding:10px; background:#fff; border:1px solid #ddd; border-radius:6px }
     .delete-btn { position:absolute; top:6px; right:6px; border:none; background:none; color:red; font-size:16px; cursor:pointer }
@@ -28,15 +28,13 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
   <script>
-    // Supabase
     const { createClient } = supabase;
     const supabaseClient = createClient(
       'https://iudrrkimbkpztjcqzgfx.supabase.co',
-      'eyJh…6XHE'
+      '你的 anon key'
     );
     console.log('Supabase initialized', supabaseClient);
 
-    // Firebase
     firebase.initializeApp({
       apiKey: "...", authDomain:"...", databaseURL:"...", projectId:"...", storageBucket:"...", messagingSenderId:"...", appId:"..."
     });
@@ -70,8 +68,9 @@
       console.log("keydown:", e.key);
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        clipRef.update({ content: textarea.value });
-        textsRef.push(textarea.value);
+        const val = textarea.value;
+        clipRef.update({ content: val });
+        textsRef.push(val);
       }
     });
 
@@ -79,34 +78,25 @@
 
     clipRef.on("value", snap => {
       const v = snap.val()?.content;
-      if (v !== undefined && document.activeElement !== textarea) {
-        textarea.value = v;
-      }
+      if (v !== undefined && document.activeElement !== textarea) textarea.value = v;
     });
 
     textsRef.on("child_added", snap => addHistoryItem(snap.key, snap.val()));
 
     upload.addEventListener("change", async () => {
       const file = upload.files[0];
-      if (!file) return;
+      if (!file) return status.textContent = "";
       status.textContent = "上傳中...";
       const filename = `${Date.now()}_${file.name}`;
-      const { data, error } = await supabaseClient
-        .storage.from('cliptoolsupload').upload(filename, file);
-      if (error) {
-        console.error(error);
-        status.textContent = "上傳失敗 ❌";
-        return;
-      }
-      const { publicUrl, error: urlErr } = supabaseClient
-        .storage.from('cliptoolsupload').getPublicUrl(filename);
-      if (urlErr) {
-        console.error(urlErr);
-        status.textContent = "取得連結失敗 ❌";
-        return;
-      }
-      clipRef.update({ content: `已上傳：${publicUrl}` });
-      textsRef.push(`已上傳：${publicUrl}`);
+      const { error } = await supabaseClient.storage
+        .from('cliptoolsupload').upload(filename, file);
+      if (error) return status.textContent = "上傳失敗 ❌";
+      const { publicUrl, error: urlErr } = supabaseClient.storage
+        .from('cliptoolsupload').getPublicUrl(filename);
+      if (urlErr) return status.textContent = "取得連結失敗 ❌";
+      const txt = `已上傳：${publicUrl}`;
+      clipRef.update({ content: txt });
+      textsRef.push(txt);
       status.textContent = "上傳成功 ✅";
     });
   </script>
