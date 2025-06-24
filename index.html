@@ -1,58 +1,44 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8"/>
-  <title>剪貼簿工具 + 檔案上傳 + QR</title>
+  <meta charset="UTF-8">
+  <title>剪貼簿工具</title>
   <style>
-    body { background: #f3f6fb; font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-    h1 { color: #333; }
-    #clipboard { width:80%; height:200px; margin:20px auto; padding:10px; border:2px solid #ccc; border-radius:10px; background:#fff; font-size:18px; resize:none; }
-    #mobile-qr { margin:20px; }
-    #mobile-qr img { max-width:200px; border:2px solid #ccc; border-radius:8px; }
-    input, #status { margin-top:10px; }
-    #history { max-width:80%; margin:30px auto; text-align:left; list-style:none; padding:0; }
-    .item { position:relative; background:#fff; padding:10px; margin:8px 0; border:1px solid #ddd; border-radius:6px; }
-    .delete-btn { position:absolute; top:6px; right:6px; border:none; background:none; color:red; cursor:pointer; font-size:16px; }
+    body { background:#f3f6fb; font-family:Arial,sans-serif; text-align:center; padding:20px }
+    #clipboard { width:80%; height:200px; margin:20px auto; padding:10px; border:2px solid #ccc; border-radius:10px; font-size:18px; resize:none }
+    #mobile-qr img { max-width:200px; border:2px solid #ccc; border-radius:8px; margin:20px auto; }
+    #status, input { margin-top:10px }
+    #history { max-width:80%; margin:30px auto; text-align:left; list-style:none; padding:0 }
+    .item { position:relative; margin:8px 0; padding:10px; background:#fff; border:1px solid #ddd; border-radius:6px }
+    .delete-btn { position:absolute; top:6px; right:6px; border:none; background:none; color:red; font-size:16px; cursor:pointer }
   </style>
 </head>
 <body>
   <h1>剪貼簿工具</h1>
-  <textarea id="clipboard" placeholder="Shift+Enter 換行，Enter 同步並加入歷史"></textarea><br>
+  <textarea id="clipboard" placeholder="Shift+Enter 換行，Enter 同步並加入歷史"></textarea>
 
-  <div id="mobile-qr">
-    <p>手機開啟網址</p>
-    <img src="assets/images/qrcode.png" alt="QR Code 網址">
-  </div>
+  <div id="mobile-qr"><p>手機開啟網址</p><img src="qrcode.png" alt="QR Code 網址"></div>
 
   <input type="file" id="upload">
   <div id="status"></div>
   <ul id="history"></ul>
 
-  <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
   <script>
-    // ——— Supabase 初始化 ———
+    // Supabase
     const { createClient } = supabase;
     const supabaseClient = createClient(
       'https://iudrrkimbkpztjcqzgfx.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1ZHJya2ltYmtwenRqY3F6Z2Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTQzNzgsImV4cCI6MjA2NjMzMDM3OH0.0zHo3IlsxiF9_HfNJFFdhenjRnerKResdL96IAa6XHE'
+      'eyJh…6XHE'
     );
-    console.log('Supabase 已初始化', supabaseClient);
+    console.log('Supabase initialized', supabaseClient);
 
-    // ——— Firebase 初始化 ———
+    // Firebase
     firebase.initializeApp({
-      apiKey: "AIzaSyCX_CxCX4qzdppocOx8INI1nmcrM15buDI",
-      authDomain: "cliptools2.firebaseapp.com",
-      databaseURL: "https://cliptools2-default-rtdb.firebaseio.com",
-      projectId: "cliptools2",
-      storageBucket: "cliptools2.firebasestorage.app",
-      messagingSenderId: "719870992662",
-      appId: "1:719870992662:web:2c2c413f2bc95effceb037"
+      apiKey: "...", authDomain:"...", databaseURL:"...", projectId:"...", storageBucket:"...", messagingSenderId:"...", appId:"..."
     });
     const db = firebase.database();
     const clipRef = db.ref("clipboard");
@@ -68,16 +54,14 @@
       itemCount++;
       const li = document.createElement("li");
       li.className = "item";
-      li.dataset.key = key;
-      li.innerHTML = `<strong>${itemCount}.</strong> ${text}
-                      <button class="delete-btn">✖</button>`;
+      li.innerHTML = `<strong>${itemCount}.</strong> ${text}<button class="delete-btn">✖</button>`;
       li.querySelector(".delete-btn").onclick = () => {
         textsRef.child(key).remove();
         li.remove();
         itemCount = 0;
-        Array.from(historyList.children).forEach((el, idx) => {
-          el.querySelector("strong").textContent = `${++itemCount}.`;
-        });
+        Array.from(historyList.children).forEach((el, i) =>
+          el.querySelector("strong").textContent = `${++itemCount}.`
+        );
       };
       historyList.appendChild(li);
     }
@@ -86,15 +70,12 @@
       console.log("keydown:", e.key);
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        const val = textarea.value;
-        clipRef.update({ content: val });
-        textsRef.push(val);
+        clipRef.update({ content: textarea.value });
+        textsRef.push(textarea.value);
       }
     });
 
-    textarea.addEventListener("input", () => {
-      clipRef.update({ content: textarea.value });
-    });
+    textarea.addEventListener("input", () => clipRef.update({ content: textarea.value }));
 
     clipRef.on("value", snap => {
       const v = snap.val()?.content;
@@ -103,9 +84,7 @@
       }
     });
 
-    textsRef.on("child_added", snap => {
-      addHistoryItem(snap.key, snap.val());
-    });
+    textsRef.on("child_added", snap => addHistoryItem(snap.key, snap.val()));
 
     upload.addEventListener("change", async () => {
       const file = upload.files[0];
@@ -113,26 +92,21 @@
       status.textContent = "上傳中...";
       const filename = `${Date.now()}_${file.name}`;
       const { data, error } = await supabaseClient
-        .storage
-        .from('cliptoolsupload')
-        .upload(filename, file);
+        .storage.from('cliptoolsupload').upload(filename, file);
       if (error) {
         console.error(error);
         status.textContent = "上傳失敗 ❌";
         return;
       }
       const { publicUrl, error: urlErr } = supabaseClient
-        .storage
-        .from('cliptoolsupload')
-        .getPublicUrl(filename);
+        .storage.from('cliptoolsupload').getPublicUrl(filename);
       if (urlErr) {
         console.error(urlErr);
         status.textContent = "取得連結失敗 ❌";
         return;
       }
-      const val = `已上傳：${publicUrl}`;
-      clipRef.update({ content: val });
-      textsRef.push(val);
+      clipRef.update({ content: `已上傳：${publicUrl}` });
+      textsRef.push(`已上傳：${publicUrl}`);
       status.textContent = "上傳成功 ✅";
     });
   </script>
